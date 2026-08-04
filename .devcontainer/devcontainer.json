@@ -1,0 +1,17 @@
+{
+	"image": "mcr.microsoft.com/devcontainers/base:bookworm",
+	"features": {
+		"ghcr.io/devcontainers/features/node:1": {
+			"version": "20"
+		}
+	},
+	"postCreateCommand": "npm install -g @cucumber/gherkin-utils",
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"cucumberopen.cucumber-official",
+				"davidanson.vscode-markdownlint"
+			]
+		}
+	}
+}
