@@ -1,0 +1,65 @@
+name: Conformance tests
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  demo-ts:
+    name: validator-conformance-demo-ts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout spec (this repo)
+        uses: actions/checkout@v4
+        with:
+          path: spec
+
+      - name: Checkout validator-conformance-demo-ts
+        uses: actions/checkout@v4
+        with:
+          repository: InsonusK/validator-conformance-demo-ts
+          submodules: recursive
+          path: demo-ts
+
+      - name: Use spec from this commit instead of the pinned submodule
+        run: |
+          rm -rf demo-ts/specs
+          cp -r spec demo-ts/specs
+          rm -rf demo-ts/specs/.git
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Run library tests against the spec
+        run: make -C demo-ts test
+
+  demo-dotnet:
+    name: validator-conformance-demo-dotnet
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout spec (this repo)
+        uses: actions/checkout@v4
+        with:
+          path: spec
+
+      - name: Checkout validator-conformance-demo-dotnet
+        uses: actions/checkout@v4
+        with:
+          repository: InsonusK/validator-conformance-demo-dotnet
+          submodules: recursive
+          path: demo-dotnet
+
+      - name: Use spec from this commit instead of the pinned submodule
+        run: |
+          rm -rf demo-dotnet/specs
+          cp -r spec demo-dotnet/specs
+          rm -rf demo-dotnet/specs/.git
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Run library tests against the spec
+        run: make -C demo-dotnet test
