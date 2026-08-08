@@ -11,7 +11,8 @@
 			"extensions": [
 				"cucumberopen.cucumber-official",
 				"davidanson.vscode-markdownlint",
-				"Anthropic.claude-code"
+				"Anthropic.claude-code",
+				"mhutchie.git-graph"
 			]
 		}
 	}
