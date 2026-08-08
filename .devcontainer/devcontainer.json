@@ -10,7 +10,8 @@
 		"vscode": {
 			"extensions": [
 				"cucumberopen.cucumber-official",
-				"davidanson.vscode-markdownlint"
+				"davidanson.vscode-markdownlint",
+				"Anthropic.claude-code"
 			]
 		}
 	}
