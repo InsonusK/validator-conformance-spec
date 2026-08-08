@@ -11,6 +11,7 @@ Feature: Проверка массива идентификаторов по д�
       | id-1 | true   |        1 |
       | id-2 | true   |        2 |
       | id-3 | true   |        3 |
+      | id-4 | true   |        2 |
       | id-9 | false  |          |
 
   Scenario Outline: массив идентификаторов проверяется на корректность
@@ -25,8 +26,9 @@ Feature: Проверка массива идентификаторов по д�
       | подмножество ID (без пропуска подряд) в порядке    | id-2,id-3      | true  |                 |
       | единственный ID — упорядочен тривиально            | id-1           | true  |                 |
       | два ID переданы в обратном порядке                 | id-2,id-1      | false | ids_not_ordered |
+      | два разных ID с одинаковым порядковым номером      | id-2,id-4      | false | ids_not_ordered |
       | ID из середины нарушает порядок                    | id-1,id-3,id-2 | false | ids_not_ordered |
       | один из ID отсутствует в контексте (isExist=false) | id-1,id-9      | false | id_not_found    |
-      | ID вообще не известен контексту                    | id-1,id-4      | false | id_not_found    |
+      | ID вообще не известен контексту                    | id-1,id-5      | false | id_not_found    |
       | пустой массив ID                                   |                | false | ids_required    |
       | ID повторяется в массиве                           | id-1,id-1,id-2 | false | duplicate_id    |
