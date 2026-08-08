@@ -6,6 +6,7 @@ on:
       - master
     paths:
       - 'features/**'
+      - '.github/**'
   workflow_dispatch:
 
 permissions:
