@@ -1,0 +1,248 @@
+name: Publish reports
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'features/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one Pages deployment at a time; never cancel one mid-upload.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  ts-test:
+    name: validator-conformance-demo-ts (tests + coverage)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout spec (this repo)
+        uses: actions/checkout@v4
+        with:
+          path: spec
+
+      - name: Checkout validator-conformance-demo-ts
+        uses: actions/checkout@v4
+        with:
+          repository: InsonusK/validator-conformance-demo-ts
+          submodules: recursive
+          path: demo-ts
+
+      - name: Use spec from this commit instead of the pinned submodule
+        run: |
+          rm -rf demo-ts/specs
+          cp -r spec demo-ts/specs
+          rm -rf demo-ts/specs/.git
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Run library tests with coverage against the spec
+        run: make -C demo-ts cucumber-test WITH_CODE_COVERAGE=true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ts-cucumber-test-report
+          path: |
+            demo-ts/tmp/result
+            demo-ts/tmp/report/tests
+            demo-ts/tmp/report/coverage
+          if-no-files-found: error
+
+  ts-mutation:
+    name: validator-conformance-demo-ts (mutation)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout spec (this repo)
+        uses: actions/checkout@v4
+        with:
+          path: spec
+
+      - name: Checkout validator-conformance-demo-ts
+        uses: actions/checkout@v4
+        with:
+          repository: InsonusK/validator-conformance-demo-ts
+          submodules: recursive
+          path: demo-ts
+
+      - name: Use spec from this commit instead of the pinned submodule
+        run: |
+          rm -rf demo-ts/specs
+          cp -r spec demo-ts/specs
+          rm -rf demo-ts/specs/.git
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      # Full run (no ONLY_DELTA): this workflow only runs on master, where there's no PR
+      # base to diff against, so the whole library is mutated. It only reports the score -
+      # the PR gate (pr_master.yml) is what enforces conformance before code reaches master.
+      - name: Run mutation tests against the spec
+        run: make -C demo-ts mutation-test
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ts-mutation-test-report
+          path: |
+            demo-ts/tmp/result
+            demo-ts/tmp/report/mutation
+          if-no-files-found: error
+
+  dotnet-test:
+    name: validator-conformance-demo-dotnet (tests + coverage)
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/devcontainers/dotnet:2-10.0-noble
+    steps:
+      - name: Checkout spec (this repo)
+        uses: actions/checkout@v4
+        with:
+          path: spec
+
+      - name: Checkout validator-conformance-demo-dotnet
+        uses: actions/checkout@v4
+        with:
+          repository: InsonusK/validator-conformance-demo-dotnet
+          submodules: recursive
+          path: demo-dotnet
+
+      - name: Use spec from this commit instead of the pinned submodule
+        run: |
+          rm -rf demo-dotnet/specs
+          cp -r spec demo-dotnet/specs
+          rm -rf demo-dotnet/specs/.git
+
+      - name: Run library tests with coverage against the spec
+        run: make -C demo-dotnet cucumber-test WITH_CODE_COVERAGE=true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dotnet-cucumber-test-report
+          path: |
+            demo-dotnet/tmp/result
+            demo-dotnet/tmp/report/tests
+            demo-dotnet/tmp/report/coverage
+          if-no-files-found: error
+
+  dotnet-mutation:
+    name: validator-conformance-demo-dotnet (mutation)
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/devcontainers/dotnet:2-10.0-noble
+    steps:
+      - name: Checkout spec (this repo)
+        uses: actions/checkout@v4
+        with:
+          path: spec
+
+      - name: Checkout validator-conformance-demo-dotnet
+        uses: actions/checkout@v4
+        with:
+          repository: InsonusK/validator-conformance-demo-dotnet
+          submodules: recursive
+          path: demo-dotnet
+
+      - name: Use spec from this commit instead of the pinned submodule
+        run: |
+          rm -rf demo-dotnet/specs
+          cp -r spec demo-dotnet/specs
+          rm -rf demo-dotnet/specs/.git
+
+      # Stryker.NET's baseline/git-info reporter opens the repo via libgit2, which refuses
+      # to operate on a directory it doesn't consider "safe" - the container job runs as a
+      # different user than the one that owns the checked-out files.
+      - name: Mark workspace as a safe git directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE/demo-dotnet"
+
+      # Full run (no ONLY_DELTA): see ts-mutation above for why.
+      - name: Run mutation tests against the spec
+        run: make -C demo-dotnet mutation-test
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dotnet-mutation-test-report
+          path: |
+            demo-dotnet/tmp/result
+            demo-dotnet/tmp/report/mutation
+          if-no-files-found: error
+
+  result-page:
+    name: Assemble GitHub Pages site
+    needs: [ts-test, ts-mutation, dotnet-test, dotnet-mutation]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout spec (this repo)
+        uses: actions/checkout@v4
+        with:
+          path: spec
+
+      # Only scripts/Makefile/.github/pages are needed here (to reuse each demo's own
+      # report-assembly tooling) - the spec overlay doesn't matter for this step.
+      - name: Checkout validator-conformance-demo-ts
+        uses: actions/checkout@v4
+        with:
+          repository: InsonusK/validator-conformance-demo-ts
+          path: demo-ts
+
+      - name: Checkout validator-conformance-demo-dotnet
+        uses: actions/checkout@v4
+        with:
+          repository: InsonusK/validator-conformance-demo-dotnet
+          path: demo-dotnet
+
+      # upload-artifact uses the least common ancestor of each job's upload paths
+      # (demo-ts/tmp/…) as the artifact root, so it strips the "demo-ts/tmp/" prefix -
+      # download back into demo-ts/tmp and demo-dotnet/tmp to restore it, matching what
+      # each project's own result-page.sh expects (tmp/result, tmp/report).
+      - name: Download validator-conformance-demo-ts reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: "ts-*-test-report"
+          merge-multiple: true
+          path: demo-ts/tmp
+
+      - name: Download validator-conformance-demo-dotnet reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: "dotnet-*-test-report"
+          merge-multiple: true
+          path: demo-dotnet/tmp
+
+      - name: Assemble validator-conformance-demo-ts site
+        run: make -C demo-ts result-page
+
+      - name: Assemble validator-conformance-demo-dotnet site
+        run: make -C demo-dotnet result-page
+
+      - name: Assemble combined GitHub Pages site
+        run: |
+          mkdir -p public
+          cp spec/.github/pages/index.html public/index.html
+          rm -rf public/ts public/dotnet
+          cp -r demo-ts/public public/ts
+          cp -r demo-dotnet/public public/dotnet
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: result-page
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
