@@ -15,6 +15,7 @@ Feature: Проверка диапазона дат "Дата С" — "Дата 
       | не передана Дата С                   |            | 2026-01-01 | false | date_from_required                  |
       | не передана Дата По                  | 2026-01-01 |            | false | date_to_required                    |
       | не переданы обе даты                 |            |            | false | date_from_required,date_to_required |
+      | Дата По в неподдерживаемом формате   | 2026-01-01 | 01/01/2026 | false | invalid_date_format                 |
       | Дата С в неподдерживаемом формате    | 01/01/2026 | 2026-01-31 | false | invalid_date_format                 |
       | Дата С содержит несуществующий месяц | 2026-13-01 | 2026-01-31 | false | invalid_date_format                 |
       | Дата С не является датой             | not-a-date | 2026-01-31 | false | invalid_date_format                 |
